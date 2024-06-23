@@ -1,0 +1,8 @@
+[package]
+name = "rspack-rust-api"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+rspack_core = { git = "https://github.com/web-infra-dev/rspack", branch = "main"}
