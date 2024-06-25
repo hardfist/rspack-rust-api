@@ -5,14 +5,13 @@ use rspack_core::{
     UsedExportsOption, WasmLoading, ChunkLoading, ChunkLoadingType, CrossOriginLoading, HashFunction, 
     HashDigest, HashSalt, Environment
 };
-use rspack_plugin_entry::EntryPlugin;
-use std::sync::Arc;
 use rspack_fs::AsyncNativeFileSystem;
+use rspack_plugin_entry::EntryPlugin;
 use serde_json::Map;
 use serde_json::Value;
 
 fn main() {
-    let output_filesystem = Arc::new(AsyncNativeFileSystem::default());
+    let output_filesystem =AsyncNativeFileSystem{};
 
     let options = CompilerOptions {
         context: "some_context".into(),
