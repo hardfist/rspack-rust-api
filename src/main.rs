@@ -2,7 +2,8 @@ use rspack_core::{
     Builtins, CacheOptions, Compiler, CompilerOptions, Context, DevServerOptions, EntryOptions,
     Experiments, Filename, MangleExportsOption, Mode, ModuleOptions, Optimization, OutputOptions,
     PathInfo, Plugin, PublicPath, Resolve, SideEffectOption, SnapshotOptions, StatsOptions, Target,
-    UsedExportsOption, WasmLoading,
+    UsedExportsOption, WasmLoading, ChunkLoading, ChunkLoadingType, CrossOriginLoading, HashFunction, 
+    HashDigest, HashSalt, Environment
 };
 use rspack_plugin_entry::EntryPlugin;
 use std::sync::Arc;
@@ -11,6 +12,8 @@ use serde_json::Map;
 use serde_json::Value;
 
 fn main() {
+    let output_filesystem = Arc::new(AsyncNativeFileSystem::default());
+
     let options = CompilerOptions {
         context: "some_context".into(),
         dev_server: DevServerOptions::default(),
@@ -23,35 +26,38 @@ fn main() {
             wasm_loading: WasmLoading::Disable,
             webassembly_module_filename: Filename::from(String::from("webassembly.js")),
             unique_name: "main".into(),
-            chunk_loading: None,
-            chunk_loading_global: None,
-            filename: None,
-            chunk_filename: None,
-            cross_origin_loading: None,
-            css_filename: None,
-            css_chunk_filename: None,
-            hot_update_main_filename: None,
-            hot_update_chunk_filename: None,
-            hot_update_global: None,
+            chunk_loading: ChunkLoading::Enable(ChunkLoadingType::Import),
+            chunk_loading_global: String::new(),
+            filename: Filename::from(String::from("[name].js")),
+            chunk_filename: Filename::from(String::from("[id].js")),
+            cross_origin_loading: CrossOriginLoading::Disable,
+            css_filename: Filename::from(String::from("[name].css")),
+            css_chunk_filename: Filename::from(String::from("[id].css")),
+            hot_update_main_filename: Filename::from(String::from("[name].[hash].hot-update.js")),
+            hot_update_chunk_filename: Filename::from(String::from("[id].[hash].hot-update.js")),
+            hot_update_global: String::new(),
             library: None,
             enabled_library_types: None,
-            strict_module_error_handling: None,
-            global_object: None,
-            import_function_name: None,
-            iife: None,
-            module: None,
+            strict_module_error_handling: false,
+            global_object: String::from("window"),
+            import_function_name: String::from("import"),
+            iife: false,
+            module: false,
             trusted_types: None,
-            source_map_filename: None,
-            hash_function: None,
-            hash_digest: None,
-            hash_digest_length: None,
-            hash_salt: None,
-            async_chunks: None,
-            worker_chunk_loading: None,
-            worker_wasm_loading: None,
-            worker_public_path: None,
-            script_type: None,
-            environment: None,
+            source_map_filename: Filename::from(String::from("[file].map")),
+            hash_function: HashFunction::MD4,
+            hash_digest: HashDigest::Hex,
+            hash_digest_length: 20,
+            hash_salt: HashSalt::Salt(String::from("salt")),
+            async_chunks: false,
+            worker_chunk_loading: ChunkLoading::Disable,
+            worker_wasm_loading: WasmLoading::Disable,
+            worker_public_path: String::new(),
+            script_type: String::from("text/javascript"),
+            environment: Environment {
+                r#const: Some(true),
+                arrow_function: Some(true),
+            },
         },
         target: Target::new(&vec!["es2022".to_string()]).unwrap(),
         mode: Mode::Development,
@@ -94,8 +100,6 @@ fn main() {
     };
     let plugin = Box::new(EntryPlugin::new(context, entry_request, plugin_options));
     plugins.push(plugin);
-
-    let output_filesystem = AsyncNativeFileSystem::default();
 
     let compiler = Compiler::new(options, plugins, output_filesystem);
 }
