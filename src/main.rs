@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::path::Path;
 mod emit_plugin;
 use emit_plugin::EmitPlugin;
+use rspack_ids::NaturalChunkIdsPlugin;
+use rspack_ids::{NamedModuleIdsPlugin, NamedChunkIdsPlugin};
 use emit_plugin::EmitPluginOptions;
 use rspack_core::GeneratorOptions;
 use rspack_core::GeneratorOptionsByModuleType;
@@ -133,22 +135,22 @@ async fn main() {
     let mut plugins: Vec<Box<dyn Plugin>> = Vec::new();
 
     let plugin_options = EntryOptions {
-        name: None,
+        name: Some("main".to_string()),
         runtime: None,
         chunk_loading: None,
         async_chunks: None,
         public_path: None,
         base_uri: None,
-        filename: None,
+        filename:None,
         library: None,
         depend_on: None,
     };
     dbg!(&entry_request);
     let entry_plugin = Box::new(EntryPlugin::new(context, entry_request, plugin_options));
-    let emit_plugin = Box::new(EmitPlugin::new(EmitPluginOptions {}));
     plugins.push(Box::<JsPlugin>::default());
     plugins.push(entry_plugin);
-    plugins.push(emit_plugin);
+    plugins.push(Box::<NaturalChunkIdsPlugin>::default());
+    plugins.push(Box::<NamedModuleIdsPlugin>::default());
     let mut compiler = Compiler::new(options, plugins, output_filesystem);
     compiler.build().await.expect("build failed");
 }
