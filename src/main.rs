@@ -1,25 +1,41 @@
+use std::collections::HashMap;
 use std::path::Path;
-
+mod emit_plugin;
+use emit_plugin::EmitPlugin;
+use emit_plugin::EmitPluginOptions;
+use rspack_core::GeneratorOptions;
+use rspack_core::GeneratorOptionsByModuleType;
+use rspack_core::JavascriptParserOptions;
+use rspack_core::ModuleType;
+use rspack_core::ParserOptions;
+use rspack_core::ParserOptionsByModuleType;
 use rspack_core::{
-    Builtins, CacheOptions, Compiler, CompilerOptions, Context, DevServerOptions, EntryOptions,
-    Experiments, Filename, MangleExportsOption, Mode, ModuleOptions, Optimization, OutputOptions,
-    PathInfo, Plugin, PublicPath, Resolve, SideEffectOption, SnapshotOptions, StatsOptions, Target,
-    UsedExportsOption, WasmLoading, ChunkLoading, ChunkLoadingType, CrossOriginLoading, HashFunction, 
-    HashDigest, HashSalt, Environment
+    Builtins, CacheOptions, ChunkLoading, ChunkLoadingType, Compiler, CompilerOptions, Context,
+    CrossOriginLoading, DevServerOptions, EntryOptions, Environment, Experiments, Filename,
+    HashDigest, HashFunction, HashSalt, MangleExportsOption, Mode, ModuleOptions, Optimization,
+    OutputOptions, PathInfo, Plugin, PublicPath, Resolve, SideEffectOption, SnapshotOptions,
+    StatsOptions, Target, UsedExportsOption, WasmLoading,
 };
 use rspack_fs::AsyncNativeFileSystem;
 use rspack_plugin_entry::EntryPlugin;
+use rspack_plugin_javascript::JsPlugin;
 use serde_json::Map;
 use serde_json::Value;
 
 #[tokio::main]
-async fn main(){
-    let output_filesystem =AsyncNativeFileSystem{};
+async fn main() {
+    let output_filesystem = AsyncNativeFileSystem {};
     let root = env!("CARGO_MANIFEST_DIR");
     let context = Context::new(root.to_string());
     let dist = Path::new(root).join("./dist").canonicalize().unwrap();
-    let entry_request = Path::new(root).join("./fixtures/index.js").canonicalize().unwrap().to_string_lossy().to_string();
+    let entry_request = Path::new(root)
+        .join("./fixtures/index.js")
+        .canonicalize()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
     dbg!(&entry_request);
+    
     let options = CompilerOptions {
         context: "root".into(),
         dev_server: DevServerOptions::default(),
@@ -67,13 +83,34 @@ async fn main(){
         },
         target: Target::new(&vec!["es2022".to_string()]).unwrap(),
         mode: Mode::Development,
-        resolve: Resolve { extensions: Some(vec![
-            ".js".to_string()
-        ]),..Default::default()},
-        resolve_loader: Resolve { extensions: Some(vec![
-            ".js".to_string()
-        ]),..Default::default()},
-        module: ModuleOptions::default(),
+        resolve: Resolve {
+            extensions: Some(vec![".js".to_string()]),
+            ..Default::default()
+        },
+        resolve_loader: Resolve {
+            extensions: Some(vec![".js".to_string()]),
+            ..Default::default()
+        },
+        module: ModuleOptions {
+            parser: Some(ParserOptionsByModuleType::from_iter([(
+                ModuleType::JsAuto,
+                ParserOptions::Javascript(JavascriptParserOptions {
+                    dynamic_import_mode: rspack_core::DynamicImportMode::Eager,
+                    dynamic_import_prefetch: rspack_core::JavascriptParserOrder::Order(1),
+                    dynamic_import_preload: rspack_core::JavascriptParserOrder::Order(1),
+                    url: rspack_core::JavascriptParserUrl::Disable,
+                    expr_context_critical: false,
+                    wrapped_context_critical: false,
+                    exports_presence: None,
+                    import_exports_presence: None,
+                    reexport_exports_presence: None,
+                    strict_export_presence: false,
+                    worker: vec![],
+                }),
+            )])),
+            //    generator: Some(GeneratorOptionsByModuleType::from_iter(generator.iter())),
+            ..Default::default()
+        },
         stats: StatsOptions::default(),
         snapshot: SnapshotOptions::default(),
         cache: CacheOptions::default(),
@@ -106,14 +143,12 @@ async fn main(){
         library: None,
         depend_on: None,
     };
-    let plugin = Box::new(EntryPlugin::new(context, entry_request, plugin_options));
-    plugins.push(plugin);
-
+    dbg!(&entry_request);
+    let entry_plugin = Box::new(EntryPlugin::new(context, entry_request, plugin_options));
+    let emit_plugin = Box::new(EmitPlugin::new(EmitPluginOptions {}));
+    plugins.push(Box::<JsPlugin>::default());
+    plugins.push(entry_plugin);
+    plugins.push(emit_plugin);
     let mut compiler = Compiler::new(options, plugins, output_filesystem);
-    
     compiler.build().await.expect("build failed");
-    let assets = compiler.compilation.assets();
-    dbg!(assets);
-    
-    
 }
