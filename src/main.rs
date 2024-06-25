@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use rspack_core::{
     Builtins, CacheOptions, Compiler, CompilerOptions, Context, DevServerOptions, EntryOptions,
     Experiments, Filename, MangleExportsOption, Mode, ModuleOptions, Optimization, OutputOptions,
@@ -10,7 +12,8 @@ use rspack_plugin_entry::EntryPlugin;
 use serde_json::Map;
 use serde_json::Value;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let output_filesystem =AsyncNativeFileSystem{};
 
     let options = CompilerOptions {
@@ -60,8 +63,12 @@ fn main() {
         },
         target: Target::new(&vec!["es2022".to_string()]).unwrap(),
         mode: Mode::Development,
-        resolve: Resolve::default(),
-        resolve_loader: Resolve::default(),
+        resolve: Resolve { extensions: Some(vec![
+            ".js".to_string()
+        ]),..Default::default()},
+        resolve_loader: Resolve { extensions: Some(vec![
+            ".js".to_string()
+        ]),..Default::default()},
         module: ModuleOptions::default(),
         stats: StatsOptions::default(),
         snapshot: SnapshotOptions::default(),
@@ -83,9 +90,9 @@ fn main() {
         node: None,
     };
     let mut plugins: Vec<Box<dyn Plugin>> = Vec::new();
-
-    let context = Context::from("some_context");
-    let entry_request = "some_entry_request".to_string();
+    let root = env!("CARGO_MANIFEST_DIR");
+    let context = Context::new(root.to_string());
+    let entry_request = Path::new(root).join("./fixtures/index.js").canonicalize().unwrap().to_string_lossy().to_string();
     let plugin_options = EntryOptions {
         name: None,
         runtime: None,
@@ -100,5 +107,7 @@ fn main() {
     let plugin = Box::new(EntryPlugin::new(context, entry_request, plugin_options));
     plugins.push(plugin);
 
-    let compiler = Compiler::new(options, plugins, output_filesystem);
+    let mut compiler = Compiler::new(options, plugins, output_filesystem);
+    let result = compiler.build().await;
+    dbg!(result);
 }
