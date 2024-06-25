@@ -6,3 +6,5 @@ edition = "2021"
 
 [dependencies]
 rspack_core = { git = "https://github.com/web-infra-dev/rspack", branch = "main"}
+rspack_plugin_entry = { git = "https://github.com/web-infra-dev/rspack", branch = "main", package = "rspack_plugin_entry" }
+rspack_fs = { git = "https://github.com/web-infra-dev/rspack", branch = "main", package = "rspack_fs" }
