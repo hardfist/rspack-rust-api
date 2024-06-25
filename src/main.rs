@@ -17,21 +17,26 @@ use rspack_plugin_entry::EntryPlugin;
 use rspack_plugin_javascript::JsPlugin;
 use serde_json::Map;
 use serde_json::Value;
+use std::fs;
 
 #[tokio::main]
 async fn main() {
     let output_filesystem = AsyncNativeFileSystem {};
     let root = env!("CARGO_MANIFEST_DIR");
     let context = Context::new(root.to_string());
-    let dist = Path::new(root).join("./dist").canonicalize().unwrap();
-    let entry_request = Path::new(root)
+    let dist: std::path::PathBuf = Path::new(root).join("./dist");
+    if !dist.exists() {
+        fs::create_dir_all(&dist).expect("Failed to create dist directory");
+    }
+    let dist = dist.canonicalize().unwrap();
+    let entry_request: String = Path::new(root)
         .join("./fixtures/index.js")
         .canonicalize()
         .unwrap()
         .to_string_lossy()
-        .to_string();    
+        .to_string();
     let options = CompilerOptions {
-        context: "root".into(),
+        context: root.into(),
         dev_server: DevServerOptions::default(),
         output: OutputOptions {
             path: dist,
