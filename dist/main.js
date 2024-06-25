@@ -1,6 +1,6 @@
 "use strict";
 var __webpack_modules__ = ({
-"../fixtures/answer.js": (function (__unused_webpack_module, __webpack_exports__) {
+"./fixtures/answer.js": (function (__unused_webpack_module, __webpack_exports__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   answer: function() { return answer; }
@@ -37,6 +37,6 @@ return module.exports;
 /************************************************************************/
 var __webpack_exports__ = {};
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */var _answer_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("../fixtures/answer.js");
+/* harmony import */var _answer_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("./fixtures/answer.js");
 
 console.log('answer:',_answer_js__WEBPACK_IMPORTED_MODULE_0__.answer);
