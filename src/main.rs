@@ -1,12 +1,6 @@
-use std::collections::HashMap;
 use std::path::Path;
-mod emit_plugin;
-use emit_plugin::EmitPlugin;
 use rspack_ids::NaturalChunkIdsPlugin;
-use rspack_ids::{NamedModuleIdsPlugin, NamedChunkIdsPlugin};
-use emit_plugin::EmitPluginOptions;
-use rspack_core::GeneratorOptions;
-use rspack_core::GeneratorOptionsByModuleType;
+use rspack_ids::NamedModuleIdsPlugin;
 use rspack_core::JavascriptParserOptions;
 use rspack_core::ModuleType;
 use rspack_core::ParserOptions;
@@ -35,9 +29,7 @@ async fn main() {
         .canonicalize()
         .unwrap()
         .to_string_lossy()
-        .to_string();
-    dbg!(&entry_request);
-    
+        .to_string();    
     let options = CompilerOptions {
         context: "root".into(),
         dev_server: DevServerOptions::default(),
@@ -114,7 +106,7 @@ async fn main() {
             ..Default::default()
         },
         stats: StatsOptions::default(),
-        snapshot: SnapshotOptions::default(),
+        snapshot: SnapshotOptions,
         cache: CacheOptions::default(),
         experiments: Experiments::default(),
         optimization: Optimization {
@@ -145,7 +137,6 @@ async fn main() {
         library: None,
         depend_on: None,
     };
-    dbg!(&entry_request);
     let entry_plugin = Box::new(EntryPlugin::new(context, entry_request, plugin_options));
     plugins.push(Box::<JsPlugin>::default());
     plugins.push(entry_plugin);
