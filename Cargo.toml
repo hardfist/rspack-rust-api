@@ -9,3 +9,4 @@ rspack_core = { git = "https://github.com/web-infra-dev/rspack", branch = "main"
 rspack_plugin_entry = { git = "https://github.com/web-infra-dev/rspack", branch = "main", package = "rspack_plugin_entry" }
 rspack_fs = { git = "https://github.com/web-infra-dev/rspack", branch = "main", package = "rspack_fs" }
 serde_json = "1.0.113"
+tokio = {features = ["full"], version = "1.38.0"}
