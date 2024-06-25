@@ -10,3 +10,4 @@ rspack_plugin_entry = { git = "https://github.com/web-infra-dev/rspack", branch 
 rspack_fs = { git = "https://github.com/web-infra-dev/rspack", branch = "main", package = "rspack_fs" }
 serde_json = "1.0.113"
 tokio = {features = ["full"], version = "1.38.0"}
+miette = { version = "*"}

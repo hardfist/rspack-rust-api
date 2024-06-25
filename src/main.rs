@@ -13,16 +13,20 @@ use serde_json::Map;
 use serde_json::Value;
 
 #[tokio::main]
-async fn main() {
+async fn main(){
     let output_filesystem =AsyncNativeFileSystem{};
-
+    let root = env!("CARGO_MANIFEST_DIR");
+    let context = Context::new(root.to_string());
+    let dist = Path::new(root).join("./dist").canonicalize().unwrap();
+    let entry_request = Path::new(root).join("./fixtures/index.js").canonicalize().unwrap().to_string_lossy().to_string();
+    dbg!(&entry_request);
     let options = CompilerOptions {
-        context: "some_context".into(),
+        context: "root".into(),
         dev_server: DevServerOptions::default(),
         output: OutputOptions {
-            path: "dist".into(),
+            path: dist,
             pathinfo: PathInfo::Bool(false),
-            clean: true,
+            clean: false,
             public_path: PublicPath::Auto,
             asset_module_filename: Filename::from(String::from("asset-[name].js")),
             wasm_loading: WasmLoading::Disable,
@@ -90,9 +94,7 @@ async fn main() {
         node: None,
     };
     let mut plugins: Vec<Box<dyn Plugin>> = Vec::new();
-    let root = env!("CARGO_MANIFEST_DIR");
-    let context = Context::new(root.to_string());
-    let entry_request = Path::new(root).join("./fixtures/index.js").canonicalize().unwrap().to_string_lossy().to_string();
+
     let plugin_options = EntryOptions {
         name: None,
         runtime: None,
@@ -108,6 +110,10 @@ async fn main() {
     plugins.push(plugin);
 
     let mut compiler = Compiler::new(options, plugins, output_filesystem);
-    let result = compiler.build().await;
-    dbg!(result);
+    
+    compiler.build().await.expect("build failed");
+    let assets = compiler.compilation.assets();
+    dbg!(assets);
+    
+    
 }
