@@ -15,6 +15,7 @@ use rspack_core::{
 use rspack_fs::AsyncNativeFileSystem;
 use rspack_plugin_entry::EntryPlugin;
 use rspack_plugin_javascript::JsPlugin;
+use rspack_plugin_schemes::DataUriPlugin;
 use serde_json::Map;
 use serde_json::Value;
 use std::fs;
@@ -147,6 +148,7 @@ async fn main() {
     plugins.push(entry_plugin);
     plugins.push(Box::<NaturalChunkIdsPlugin>::default());
     plugins.push(Box::<NamedModuleIdsPlugin>::default());
+    plugins.push(Box::<DataUriPlugin>::default());
     let mut compiler = Compiler::new(options, plugins, output_filesystem);
     compiler.build().await.expect("build failed");
 }
