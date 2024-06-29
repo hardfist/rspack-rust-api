@@ -1,5 +1,4 @@
 #![deny(warnings)]
-#![deny(warnings)]
 
 use std::convert::Infallible;
 use std::net::SocketAddr;
@@ -18,6 +17,10 @@ mod edge_compile;
 
 // An async function that consumes a request, executes the rspack file, and returns a response.
 async fn handle_request(req: Request<impl hyper::body::Body>) -> Result<Response<Full<Bytes>>, Infallible> {
+    if req.uri().path() == "/favicon.ico" {
+        return Ok(Response::new(Full::new(Bytes::new())));
+    }
+
     let start_time = Instant::now();
 
     // Parse the query parameters
@@ -25,9 +28,9 @@ async fn handle_request(req: Request<impl hyper::body::Body>) -> Result<Response
         form_urlencoded::parse(v.as_bytes()).into_iter().collect()
     }).unwrap_or_else(HashMap::new);
     // Log the query parameters for debugging
-
+    dbg!(req.uri().clone());
     // Get the entry parameter
-    let entry = query_params.get("entry").cloned().unwrap_or_else(|| "none".to_string());
+    let entry = query_params.get("entry").cloned().unwrap_or_else(|| "".to_string());
 
     // Pass the entry parameter to the compile function
     edge_compile::compile(Some(entry.clone())).await;
@@ -35,7 +38,6 @@ async fn handle_request(req: Request<impl hyper::body::Body>) -> Result<Response
 
     let response_body = format!("Compile time: {:?}", duration);
 
-    
     Ok(Response::new(Full::new(Bytes::from(response_body))))
 }
 

@@ -15,11 +15,12 @@ use rspack_core::{
 use rspack_fs::AsyncNativeFileSystem;
 use rspack_plugin_entry::EntryPlugin;
 use rspack_plugin_javascript::JsPlugin;
+use rspack_plugin_schemes::DataUriPlugin;
 use serde_json::Map;
 use serde_json::Value;
 use std::fs;
 
-pub async fn compile(entry: Option<String>) {
+pub async fn compile(network_entry: Option<String>) {
     let output_filesystem = AsyncNativeFileSystem {};
     let root = env!("CARGO_MANIFEST_DIR");
     let context = Context::new(root.to_string());
@@ -28,16 +29,21 @@ pub async fn compile(entry: Option<String>) {
         fs::create_dir_all(&dist).expect("Failed to create dist directory");
     }
     let dist = dist.canonicalize().unwrap();
-    let entry_request: String = entry.unwrap_or_else(|| {
-        Path::new(root)
-            .join("./fixtures/index.js")
-            .canonicalize()
-            .unwrap()
-            .to_string_lossy()
-            .to_string()
-    });
-
-    // let entry_request: String = "data:text/javascript,module.exports='Hello, World!'".to_string();
+    let entry_request: String = network_entry
+        .as_deref()
+        .filter(|entry| !entry.is_empty())
+        .map_or_else(
+            || {
+                Path::new(root)
+                    .join("./fixtures/index.js")
+                    .canonicalize()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string()
+            },
+            |entry| entry.to_string(),
+        );
+    dbg!(network_entry.clone());
 
     let options = CompilerOptions {
         context: root.into(),
@@ -67,7 +73,7 @@ pub async fn compile(entry: Option<String>) {
             global_object: String::from("window"),
             import_function_name: String::from("import"),
             iife: false,
-            module: false,
+            module: true,
             trusted_types: None,
             source_map_filename: Filename::from(String::from("[file].map")),
             hash_function: HashFunction::MD4,
@@ -78,7 +84,7 @@ pub async fn compile(entry: Option<String>) {
             worker_chunk_loading: ChunkLoading::Disable,
             worker_wasm_loading: WasmLoading::Disable,
             worker_public_path: String::new(),
-            script_type: String::from("text/javascript"),
+            script_type: String::from("javascript/module"),
             environment: Environment {
                 r#const: Some(true),
                 arrow_function: Some(true),
@@ -146,12 +152,13 @@ pub async fn compile(entry: Option<String>) {
         library: None,
         depend_on: None,
     };
-    let entry_plugin = Box::new(EntryPlugin::new(context, entry_request, plugin_options));
+    let entry_plugin = Box::new(EntryPlugin::new(context, entry_request.clone(), plugin_options));
     plugins.push(Box::<JsPlugin>::default());
     plugins.push(entry_plugin);
     plugins.push(Box::<NaturalChunkIdsPlugin>::default());
     plugins.push(Box::<NamedModuleIdsPlugin>::default());
+    plugins.push(Box::<DataUriPlugin>::default());
     let mut compiler = Compiler::new(options, plugins, output_filesystem);
-
+    println!("Compiling with entry: {}", entry_request);
     compiler.build().await.expect("build failed");
 }
