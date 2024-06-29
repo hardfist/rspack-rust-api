@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rspack_plugin_schemes= { git = "https://github.com/web-infra-dev/rspack", branch = "main"}
 rspack_ids= { git = "https://github.com/web-infra-dev/rspack", branch = "main"}
 rspack_binding_options= { git = "https://github.com/web-infra-dev/rspack", branch = "main"}
 rspack_hook= { git = "https://github.com/web-infra-dev/rspack", branch = "main", package = "rspack_hook"}
