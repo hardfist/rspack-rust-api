@@ -19,7 +19,7 @@ use serde_json::Map;
 use serde_json::Value;
 use std::fs;
 
-pub async fn compile() {
+pub async fn compile(entry: Option<String>) {
     let output_filesystem = AsyncNativeFileSystem {};
     let root = env!("CARGO_MANIFEST_DIR");
     let context = Context::new(root.to_string());
@@ -28,15 +28,17 @@ pub async fn compile() {
         fs::create_dir_all(&dist).expect("Failed to create dist directory");
     }
     let dist = dist.canonicalize().unwrap();
-    let entry_request: String = Path::new(root)
-        .join("./fixtures/index.js")
-        .canonicalize()
-        .unwrap()
-        .to_string_lossy()
-        .to_string();
+    let entry_request: String = entry.unwrap_or_else(|| {
+        Path::new(root)
+            .join("./fixtures/index.js")
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
+    });
 
     // let entry_request: String = "data:text/javascript,module.exports='Hello, World!'".to_string();
-    
+
     let options = CompilerOptions {
         context: root.into(),
         dev_server: DevServerOptions::default(),
@@ -150,5 +152,6 @@ pub async fn compile() {
     plugins.push(Box::<NaturalChunkIdsPlugin>::default());
     plugins.push(Box::<NamedModuleIdsPlugin>::default());
     let mut compiler = Compiler::new(options, plugins, output_filesystem);
+
     compiler.build().await.expect("build failed");
 }

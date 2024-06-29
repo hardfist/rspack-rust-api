@@ -1,4 +1,5 @@
 #![deny(warnings)]
+#![deny(warnings)]
 
 use std::convert::Infallible;
 use std::net::SocketAddr;
@@ -10,19 +11,34 @@ use hyper::service::service_fn;
 use hyper::{Request, Response};
 use tokio::net::TcpListener;
 use hyper_util::rt::TokioIo;
+use std::collections::HashMap;
+use std::time::Instant;
+use url::form_urlencoded;
 mod edge_compile;
 
 // An async function that consumes a request, executes the rspack file, and returns a response.
-use std::time::Instant;
-
-async fn handle_request(_: Request<impl hyper::body::Body>) -> Result<Response<Full<Bytes>>, Infallible> {
+async fn handle_request(req: Request<impl hyper::body::Body>) -> Result<Response<Full<Bytes>>, Infallible> {
     let start_time = Instant::now();
-    edge_compile::compile().await;
+
+    // Parse the query parameters
+    let query_params: HashMap<_, _> = req.uri().query().map(|v| {
+        form_urlencoded::parse(v.as_bytes()).into_iter().collect()
+    }).unwrap_or_else(HashMap::new);
+    // Log the query parameters for debugging
+
+    // Get the entry parameter
+    let entry = query_params.get("entry").cloned().unwrap_or_else(|| "none".to_string());
+
+    // Pass the entry parameter to the compile function
+    edge_compile::compile(Some(entry.clone())).await;
     let duration = start_time.elapsed();
 
     let response_body = format!("Compile time: {:?}", duration);
+
+    
     Ok(Response::new(Full::new(Bytes::from(response_body))))
 }
+
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     pretty_env_logger::init();
