@@ -1,2 +1,3 @@
 import { answer } from './answer.js';
-console.log('answer:',answer);
+import hello from "data:text/javascript,module.exports='Hello, World!'";
+console.log('answer:',answer,hello);
