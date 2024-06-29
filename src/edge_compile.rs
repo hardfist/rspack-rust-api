@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use std::path::Path;
 use rspack_ids::NaturalChunkIdsPlugin;
 use rspack_ids::NamedModuleIdsPlugin;
@@ -12,16 +14,24 @@ use rspack_core::{
     OutputOptions, PathInfo, Plugin, PublicPath, Resolve, SideEffectOption, SnapshotOptions,
     StatsOptions, Target, UsedExportsOption, WasmLoading,
 };
-use rspack_fs::AsyncNativeFileSystem;
+// use tokio::sync::RwLock;
+// use rspack_fs::cfg_async;
+
 use rspack_plugin_entry::EntryPlugin;
 use rspack_plugin_javascript::JsPlugin;
 use rspack_plugin_schemes::DataUriPlugin;
 use serde_json::Map;
 use serde_json::Value;
 use std::fs;
+use crate::r#memory_fs::AsyncNativeFileSystem;
 
 pub async fn compile(network_entry: Option<String>) {
-    let output_filesystem = AsyncNativeFileSystem {};
+    // let output_filesystem = AsyncNativeFileSystem {
+    //     // files: RwLock::new(HashMap::new()),
+    //     // directories: RwLock::new(HashMap::new()),
+    // };
+    let instance = AsyncNativeFileSystem::new();
+    let output_filesystem = instance.get_instance_o();
     let root = env!("CARGO_MANIFEST_DIR");
     let context = Context::new(root.to_string());
     let dist: std::path::PathBuf = Path::new(root).join("./dist");
@@ -161,4 +171,7 @@ pub async fn compile(network_entry: Option<String>) {
     let mut compiler = Compiler::new(options, plugins, output_filesystem);
     println!("Compiling with entry: {}", entry_request);
     compiler.build().await.expect("build failed");
+    let resources_future = instance.get_resources();
+    let resources = resources_future.await;
+    println!("Resources: files: {:?}, directories: {:?}", resources.0, resources.1);
 }

@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 use url::form_urlencoded;
 mod edge_compile;
-
+mod memory_fs;
 // An async function that consumes a request, executes the rspack file, and returns a response.
 async fn handle_request(req: Request<impl hyper::body::Body>) -> Result<Response<Full<Bytes>>, Infallible> {
     if req.uri().path() == "/favicon.ico" {
@@ -30,10 +30,9 @@ async fn handle_request(req: Request<impl hyper::body::Body>) -> Result<Response
     // Log the query parameters for debugging
     dbg!(req.uri().clone());
     // Get the entry parameter
-    let entry = query_params.get("entry").cloned().unwrap_or_else(|| "".to_string());
-
+    let entry = query_params.get("entry").cloned().unwrap_or_else(|| "".to_string().into());
     // Pass the entry parameter to the compile function
-    edge_compile::compile(Some(entry.clone())).await;
+    edge_compile::compile(Some(entry.clone().to_string())).await;
     let duration = start_time.elapsed();
 
     let response_body = format!("Compile time: {:?}", duration);
