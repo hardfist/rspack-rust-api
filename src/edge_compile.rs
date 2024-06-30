@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
 use std::path::Path;
+use std::collections::HashMap; // Add this import
 use rspack_ids::NaturalChunkIdsPlugin;
 use rspack_ids::NamedModuleIdsPlugin;
 use rspack_core::JavascriptParserOptions;
@@ -17,21 +18,20 @@ use rspack_core::{
 // use tokio::sync::RwLock;
 // use rspack_fs::cfg_async;
 
+// use rspack_plugin_externals::http_externals_rspack_plugin;
 use rspack_plugin_entry::EntryPlugin;
 use rspack_plugin_javascript::JsPlugin;
 use rspack_plugin_schemes::DataUriPlugin;
+use rspack_plugin_schemes::HttpUriPlugin;
 use serde_json::Map;
 use serde_json::Value;
 use std::fs;
-use crate::r#memory_fs::AsyncNativeFileSystem;
+// use rspack_fs::AsyncReadableFileSystem;
+use crate::memory_fs::MockFileSystem;
 
-pub async fn compile(network_entry: Option<String>) {
-    // let output_filesystem = AsyncNativeFileSystem {
-    //     // files: RwLock::new(HashMap::new()),
-    //     // directories: RwLock::new(HashMap::new()),
-    // };
-    let instance = AsyncNativeFileSystem::new();
-    let output_filesystem = instance.get_instance_o();
+pub async fn compile(network_entry: Option<String>) -> HashMap<String, Vec<u8>> {
+    let instance = MockFileSystem::new(); // Directly assign the instance
+    let output_filesystem = instance.clone();
     let root = env!("CARGO_MANIFEST_DIR");
     let context = Context::new(root.to_string());
     let dist: std::path::PathBuf = Path::new(root).join("./dist");
@@ -67,7 +67,7 @@ pub async fn compile(network_entry: Option<String>) {
             wasm_loading: WasmLoading::Disable,
             webassembly_module_filename: Filename::from(String::from("webassembly.js")),
             unique_name: "main".into(),
-            chunk_loading: ChunkLoading::Enable(ChunkLoadingType::Import),
+            chunk_loading: ChunkLoading::Enable(ChunkLoadingType::Jsonp),
             chunk_loading_global: String::new(),
             filename: Filename::from(String::from("[name].js")),
             chunk_filename: Filename::from(String::from("[id].js")),
@@ -83,7 +83,7 @@ pub async fn compile(network_entry: Option<String>) {
             global_object: String::from("window"),
             import_function_name: String::from("import"),
             iife: false,
-            module: true,
+            module: false,
             trusted_types: None,
             source_map_filename: Filename::from(String::from("[file].map")),
             hash_function: HashFunction::MD4,
@@ -136,7 +136,7 @@ pub async fn compile(network_entry: Option<String>) {
         experiments: Experiments::default(),
         optimization: Optimization {
             concatenate_modules: false,
-            remove_available_modules: false,
+            remove_available_modules: false, // Fixed the typo here
             provided_exports: false,
             mangle_exports: MangleExportsOption::False,
             inner_graph: true,
@@ -165,13 +165,32 @@ pub async fn compile(network_entry: Option<String>) {
     let entry_plugin = Box::new(EntryPlugin::new(context, entry_request.clone(), plugin_options));
     plugins.push(Box::<JsPlugin>::default());
     plugins.push(entry_plugin);
+    // plugins.push(http_externals_rspack_plugin(false, true));
     plugins.push(Box::<NaturalChunkIdsPlugin>::default());
     plugins.push(Box::<NamedModuleIdsPlugin>::default());
     plugins.push(Box::<DataUriPlugin>::default());
-    let mut compiler = Compiler::new(options, plugins, output_filesystem);
+    plugins.push(Box::<HttpUriPlugin>::default());
+
+    let mut compiler = Compiler::new(options, plugins, instance);
+
     println!("Compiling with entry: {}", entry_request);
     compiler.build().await.expect("build failed");
-    let resources_future = instance.get_resources();
-    let resources = resources_future.await;
-    println!("Resources: files: {:?}, directories: {:?}", resources.0, resources.1);
+
+    // Dump all files in the output_filesystem
+    let files = output_filesystem.files.read().await;
+    // for (path, content) in files.iter() {
+    //     println!("File path: {:?}", path);
+    //     println!("File content: {:?}", String::from_utf8_lossy(content));
+    // }
+    //
+    // // Dump all directories in the output_filesystem
+    // let directories = output_filesystem.directories.read().await;
+    // for path in directories.keys() {
+    //     println!("Directory path: {:?}", path);
+    // }
+
+    // Return the files HashMap
+    files.iter()
+        .map(|(path, content)| (path.to_string_lossy().to_string(), content.clone()))
+        .collect()
 }

@@ -15,6 +15,7 @@ use std::time::Instant;
 use url::form_urlencoded;
 mod edge_compile;
 mod memory_fs;
+
 // An async function that consumes a request, executes the rspack file, and returns a response.
 async fn handle_request(req: Request<impl hyper::body::Body>) -> Result<Response<Full<Bytes>>, Infallible> {
     if req.uri().path() == "/favicon.ico" {
@@ -27,15 +28,22 @@ async fn handle_request(req: Request<impl hyper::body::Body>) -> Result<Response
     let query_params: HashMap<_, _> = req.uri().query().map(|v| {
         form_urlencoded::parse(v.as_bytes()).into_iter().collect()
     }).unwrap_or_else(HashMap::new);
+    
     // Log the query parameters for debugging
-    dbg!(req.uri().clone());
+    dbg!(req.uri().clone()); // Ensure dbg! does not interfere with the return type
+
     // Get the entry parameter
     let entry = query_params.get("entry").cloned().unwrap_or_else(|| "".to_string().into());
     // Pass the entry parameter to the compile function
-    edge_compile::compile(Some(entry.clone().to_string())).await;
+    let result = edge_compile::compile(Some(entry.clone().to_string())).await;
     let duration = start_time.elapsed();
 
-    let response_body = format!("Compile time: {:?}", duration);
+    // Format the response body with compile time and file contents
+    let mut response_body = format!("Compile time: {:?}\n", duration);
+    for (path, content) in result {
+        response_body.push_str(&format!("File path: {}\n", path));
+        response_body.push_str(&format!("File content: {}\n", String::from_utf8_lossy(&content)));
+    }
 
     Ok(Response::new(Full::new(Bytes::from(response_body))))
 }

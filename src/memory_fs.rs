@@ -1,12 +1,17 @@
 #![deny(warnings)]
 
-use std::{borrow::{Borrow}, collections::HashMap, path::Path, sync::RwLock};
+use std::{
+    collections::HashMap,
+    // io::{Read, Write},
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use futures::future::BoxFuture;
 use tokio::sync::RwLock as AsyncRwLock;
 use rspack_fs::{
-    sync::{ReadableFileSystem, WritableFileSystem},
     r#async::{AsyncReadableFileSystem, AsyncWritableFileSystem},
-    Error, Result,
+    sync::{ReadableFileSystem, WritableFileSystem},
+    Result,
 };
 
 #[macro_export]
@@ -23,166 +28,123 @@ macro_rules! cfg_native {
     }
 }
 
-pub struct NativeFileSystem {
-    files: RwLock<HashMap<String, Vec<u8>>>,
-    directories: RwLock<HashMap<String, ()>>,
+#[derive(Clone)]
+pub struct MockFileSystem {
+    pub files: Arc<AsyncRwLock<HashMap<PathBuf, Vec<u8>>>>,
+    pub directories: Arc<AsyncRwLock<HashMap<PathBuf, ()>>>, // Changed type to ()
 }
 
-
-impl NativeFileSystem {
-    #[allow(dead_code)]
+impl MockFileSystem {
     pub fn new() -> Self {
-        dbg!("Creating new NativeFileSystem");
+        dbg!("Creating new MockFileSystem");
         Self {
-            files: RwLock::new(HashMap::new()),
-            directories: RwLock::new(HashMap::new()),
+            files: Arc::new(AsyncRwLock::new(HashMap::new())),
+            directories: Arc::new(AsyncRwLock::new(HashMap::new())), // Changed type to ()
         }
     }
 }
 
-impl WritableFileSystem for NativeFileSystem {
-  fn create_dir<P: AsRef<Path>>(&self, dir: P) -> Result<()> {
-    let dir_ref = dir.as_ref().to_string_lossy().to_string();
-    let dir_ref_clone = dir_ref.clone(); // Clone dir_ref before using it
-    dbg!("Creating directory: {}", dir_ref);
-    let mut directories = self.directories.write().unwrap();
-    directories.insert(dir_ref_clone, ()); // Use the cloned version here
-    Ok(())
-}
+impl WritableFileSystem for MockFileSystem {
+    fn create_dir<P: AsRef<Path>>(&self, dir: P) -> Result<()> {
+        let dir_ref = dir.as_ref().to_path_buf();
+        dbg!("Creating directory: {}", dir_ref.display());
+        let mut directories = self.directories.blocking_write();
+        directories.insert(dir_ref, ()); // Changed value to ()
+        Ok(())
+    }
 
     fn create_dir_all<P: AsRef<Path>>(&self, dir: P) -> Result<()> {
-        dbg!("Creating directory recursively: {}", dir.as_ref().to_string_lossy());
-        self.create_dir(dir)
+        let dir_ref = dir.as_ref().to_path_buf();
+        dbg!("Creating directory recursively: {}", dir_ref.display());
+        let mut directories = self.directories.blocking_write();
+        directories.insert(dir_ref, ()); // Changed value to ()
+        Ok(())
     }
 
     fn write<P: AsRef<Path>, D: AsRef<[u8]>>(&self, file: P, data: D) -> Result<()> {
-        let file = file.as_ref().to_string_lossy().to_string();
-        let file_clone = file.clone(); // Clone the file variable
-        dbg!("Writing to file: {}", file);
-        let mut files = self.files.write().unwrap();
-        files.insert(file_clone, data.as_ref().to_vec()); // Use the cloned version here
+        let file_ref = file.as_ref().to_path_buf();
+        dbg!("Writing to file: {}", file_ref.display());
+        let mut files = self.files.blocking_write();
+        files.insert(file_ref, data.as_ref().to_vec());
         Ok(())
     }
 }
 
-impl ReadableFileSystem for NativeFileSystem {
+impl ReadableFileSystem for MockFileSystem {
     fn read<P: AsRef<Path>>(&self, file: P) -> Result<Vec<u8>> {
-      let file = file.as_ref().to_string_lossy().to_string();
-      let file_clone = file.clone(); // Clone the file variable
-      dbg!("Reading file: {}", file);
-      let files = self.files.read().unwrap();
-      files.get(&file_clone).cloned().ok_or_else(|| { // Use the cloned version here
-          dbg!("File not found: {}", file_clone); // Use the cloned version here
-          Error::from(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
-      })
+        let file_ref = file.as_ref().to_path_buf();
+        dbg!("Reading file: {}", file_ref.display());
+        let files = self.files.blocking_read();
+        files.get(&file_ref).cloned().ok_or_else(|| rspack_fs::Error::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found")))
     }
 }
 
-
-pub struct AsyncNativeFileSystem {
-    files: AsyncRwLock<HashMap<String, Vec<u8>>>,
-    directories: AsyncRwLock<HashMap<String, ()>>,
-}
-
-impl AsyncNativeFileSystem {
-    pub fn new() -> Self {
-        dbg!("Creating new AsyncNativeFileSystem");
-        Self {
-            files: AsyncRwLock::new(HashMap::new()),
-            directories: AsyncRwLock::new(HashMap::new()),
-        }
-    }
-    pub fn get_instance(&self) -> &Self {
-        self.borrow()
-    }
-  
-    pub async fn get_resources(&self) -> (HashMap<String, Vec<u8>>, HashMap<String, ()>) {
-      let files = self.files.read().await.clone();
-      let directories = self.directories.read().await.clone();
-      (files, directories)
-  }
-
-}
-
-impl AsyncWritableFileSystem for AsyncNativeFileSystem {
+impl AsyncWritableFileSystem for MockFileSystem {
     fn create_dir<P: AsRef<Path>>(&self, dir: P) -> BoxFuture<'_, Result<()>> {
-        let dir_ref = dir.as_ref().to_string_lossy().to_string();
-        let dir_ref_clone = dir_ref.clone(); // Clone dir_ref before moving it into the closure
-        dbg!("Async creating directory: {}", dir_ref);
-        let fut = async move {
-            let mut directories = self.directories.write().await;
-            directories.insert(dir_ref_clone, ()); // Use the cloned version here
+        let dir_ref = dir.as_ref().to_path_buf();
+        dbg!("Async creating directory: {}", dir_ref.display());
+        let directories = self.directories.clone();
+        Box::pin(async move {
+            let mut directories = directories.write().await;
+            directories.insert(dir_ref, ()); // Changed value to ()
             Ok(())
-        };
-        Box::pin(fut)
+        })
     }
 
     fn create_dir_all<P: AsRef<Path>>(&self, dir: P) -> BoxFuture<'_, Result<()>> {
-        dbg!("Async creating directory recursively: {}", dir.as_ref().to_string_lossy());
-        self.create_dir(dir)
+        let dir_ref = dir.as_ref().to_path_buf();
+        dbg!("Async creating directory recursively: {}", dir_ref.display());
+        let directories = self.directories.clone();
+        Box::pin(async move {
+            let mut directories = directories.write().await;
+            directories.insert(dir_ref, ()); // Changed value to ()
+            Ok(())
+        })
     }
 
-    // Inside the AsyncWritableFileSystem implementation for AsyncNativeFileSystem
     fn write<P: AsRef<Path>, D: AsRef<[u8]>>(&self, file: P, data: D) -> BoxFuture<'_, Result<()>> {
-        let file = file.as_ref().to_string_lossy().to_string();
-        let file_clone = file.clone(); // Clone the file variable
-        dbg!("Async writing to file: {}", file);
+        let file_ref = file.as_ref().to_path_buf();
         let data = data.as_ref().to_vec();
-        let fut = async move {
-            let mut files = self.files.write().await;
-            files.insert(file_clone, data); // Use the cloned version here
+        dbg!("Async writing to file: {}", file_ref.display());
+        let files = self.files.clone();
+        Box::pin(async move {
+            let mut files = files.write().await;
+            files.insert(file_ref, data);
             Ok(())
-        };
-        Box::pin(fut)
+        })
     }
 
     fn remove_file<P: AsRef<Path>>(&self, file: P) -> BoxFuture<'_, Result<()>> {
-      let file = file.as_ref().to_string_lossy().to_string();
-      let file_clone = file.clone(); // Clone the file variable
-      dbg!("Async removing file: {}", file);
-      let fut = async move {
-          let mut files = self.files.write().await;
-          files.remove(&file_clone).ok_or_else(|| { // Use the cloned version here
-              dbg!("File not found: {}", file_clone); // Use the cloned version here
-              Error::from(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
-          })?;
-          Ok(())
-      };
-      Box::pin(fut)
-  }
+        let file_ref = file.as_ref().to_path_buf();
+        dbg!("Async removing file: {}", file_ref.display());
+        let files = self.files.clone();
+        Box::pin(async move {
+            let mut files = files.write().await;
+            files.remove(&file_ref);
+            Ok(())
+        })
+    }
 
     fn remove_dir_all<P: AsRef<Path>>(&self, dir: P) -> BoxFuture<'_, Result<()>> {
-        let dir_ref = dir.as_ref().to_string_lossy().to_string();
-        let dir_ref_clone = dir_ref.clone(); // Clone dir_ref before moving it into the closure
-        dbg!("Async removing directory recursively: {}", dir_ref);
-        let fut = async move {
-            let mut directories = self.directories.write().await;
-            directories.remove(&dir_ref_clone).ok_or_else(|| { // Use the cloned version here
-                dbg!("Directory not found: {}", dir_ref_clone); // Use the cloned version here
-                Error::from(std::io::Error::new(std::io::ErrorKind::NotFound, "Directory not found"))
-            })?;
+        let dir_ref = dir.as_ref().to_path_buf();
+        dbg!("Async removing directory recursively: {}", dir_ref.display());
+        let directories = self.directories.clone();
+        Box::pin(async move {
+            let mut directories = directories.write().await;
+            directories.remove(&dir_ref);
             Ok(())
-        };
-        Box::pin(fut)
+        })
     }
 }
 
-impl AsyncReadableFileSystem for AsyncNativeFileSystem {
-    // Inside the AsyncReadableFileSystem implementation for AsyncNativeFileSystem
+impl AsyncReadableFileSystem for MockFileSystem {
     fn read<P: AsRef<Path>>(&self, file: P) -> BoxFuture<'_, Result<Vec<u8>>> {
-        let file = file.as_ref().to_string_lossy().to_string();
-        let file_clone = file.clone(); // Clone the file variable
-        dbg!("Async reading file: {}", file);
-        let fut = async move {
-            let files = self.files.read().await;
-            files.get(&file_clone).cloned().ok_or_else(|| { // Use the cloned version here
-                dbg!("File not found: {}", file_clone); // Use the cloned version here
-                Error::from(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
-            })
-        };
-        Box::pin(fut)
+        let file_ref = file.as_ref().to_path_buf();
+        dbg!("Async reading file: {}", file_ref.display());
+        let files = self.files.clone();
+        Box::pin(async move {
+            let files = files.read().await;
+            files.get(&file_ref).cloned().ok_or_else(|| rspack_fs::Error::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found")))
+        })
     }
 }
-
-
-
