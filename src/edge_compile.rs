@@ -13,8 +13,9 @@ use rspack_core::{
     CrossOriginLoading, DevServerOptions, EntryOptions, Environment, Experiments, Filename,
     HashDigest, HashFunction, HashSalt, MangleExportsOption, Mode, ModuleOptions, Optimization,
     OutputOptions, PathInfo, Plugin, PublicPath, Resolve, SideEffectOption, SnapshotOptions,
-    StatsOptions, Target, UsedExportsOption, WasmLoading,
+    StatsOptions, Target, UsedExportsOption, WasmLoading
 };
+use oxc_resolver::AliasValue; // Added this import
 // use tokio::sync::RwLock;
 // use rspack_fs::cfg_async;
 
@@ -104,10 +105,15 @@ pub async fn compile(network_entry: Option<String>) -> HashMap<String, Vec<u8>> 
         mode: Mode::Development,
         resolve: Resolve {
             extensions: Some(vec![".js".to_string()]),
+            alias: Some(vec![(
+                "^/".to_string(),
+                vec![AliasValue::Path("https://esm.sh/".to_string())], // Wrap in Vec
+            )]),
             ..Default::default()
         },
         resolve_loader: Resolve {
             extensions: Some(vec![".js".to_string()]),
+
             ..Default::default()
         },
         module: ModuleOptions {

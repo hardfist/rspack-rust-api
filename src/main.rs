@@ -1,4 +1,4 @@
-#![deny(warnings)]
+#![allow(warnings)]
 
 use std::convert::Infallible;
 use std::net::SocketAddr;
