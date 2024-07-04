@@ -24,6 +24,8 @@ use rspack_plugin_entry::EntryPlugin;
 use rspack_plugin_javascript::JsPlugin;
 use rspack_plugin_schemes::DataUriPlugin;
 use rspack_plugin_schemes::HttpUriPlugin;
+use rspack_plugin_schemes::HttpUriPluginOptions; // Added this import
+use rspack_plugin_schemes::HttpUriOptionsAllowedUris; // Added this import
 use serde_json::Map;
 use serde_json::Value;
 use std::fs;
@@ -175,7 +177,40 @@ pub async fn compile(network_entry: Option<String>) -> HashMap<String, Vec<u8>> 
     plugins.push(Box::<NaturalChunkIdsPlugin>::default());
     plugins.push(Box::<NamedModuleIdsPlugin>::default());
     plugins.push(Box::<DataUriPlugin>::default());
-    plugins.push(Box::<HttpUriPlugin>::default());
+    let http_uri_options = HttpUriPluginOptions {
+        allowed_uris: HttpUriOptionsAllowedUris::default(),
+        cache_location: Some({
+            let cwd = std::env::current_dir().unwrap();
+            let mut dir = cwd.clone();
+            loop {
+                if let Ok(metadata) = std::fs::metadata(dir.join("package.json")) {
+                    if metadata.is_file() {
+                        break;
+                    }
+                }
+                let parent = dir.parent();
+                if parent.is_none() {
+                    dir = cwd.join(".cache/webpack");
+                    break;
+                }
+                dir = parent.unwrap().to_path_buf();
+            }
+            if std::env::var("pnp").unwrap_or_default() == "1" {
+                dir.join(".pnp/.cache/webpack")
+            } else if std::env::var("pnp").unwrap_or_default() == "3" {
+                dir.join(".yarn/.cache/webpack")
+            } else {
+                dir.join("node_modules/.cache/webpack")
+            }
+            .to_string_lossy()
+            .to_string()
+        }),
+        frozen: None,
+        lockfile_location: None,
+        proxy: None,
+        upgrade: None,
+    };
+    plugins.push(Box::new(HttpUriPlugin::new(http_uri_options)));
 
     let mut compiler = Compiler::new(options, plugins, instance);
 
