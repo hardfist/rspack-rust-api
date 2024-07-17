@@ -53,7 +53,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     pretty_env_logger::init();
 
     // This address is localhost
-    let addr: SocketAddr = ([127, 0, 0, 1], 3000).into();
+    let addr: SocketAddr = ([127, 0, 0, 1], 3001).into();
 
     // Bind to the port and listen for incoming TCP connections
     let listener = TcpListener::bind(addr).await?;
